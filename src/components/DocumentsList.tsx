@@ -8,12 +8,13 @@ export interface Document {
 
 interface DocumentsListProps {
   refreshTrigger?: number;
-  onSelectDocument: (filename: string, originalName: string) => void;
+  onSelectDocument: (pdfPath: string, fileName: string, ocrResult: any) => void;
 }
 
 function DocumentsList({ refreshTrigger, onSelectDocument }: DocumentsListProps) {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [loadingOCR, setLoadingOCR] = useState<string | null>(null);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -42,25 +43,19 @@ function DocumentsList({ refreshTrigger, onSelectDocument }: DocumentsListProps)
     }
   };
 
-  // Fetch documents on component mount
   useEffect(() => {
     fetchDocuments();
   }, []);
 
-  // Fetch documents when refreshTrigger changes
   useEffect(() => {
     if (refreshTrigger !== undefined) {
       fetchDocuments();
     }
   }, [refreshTrigger]);
 
-  const isPDF = (filename: string) => {
-    return filename.toLowerCase().endsWith('.pdf');
-  };
+  const isPDF = (filename: string) => filename.toLowerCase().endsWith('.pdf');
 
   const getOriginalFilename = (filename: string) => {
-    // Extract original filename from timestamp-based filename
-    // Format: originalname_timestamp.ext
     const lastUnderscoreIndex = filename.lastIndexOf('_');
     const lastDotIndex = filename.lastIndexOf('.');
     if (lastUnderscoreIndex > 0 && lastDotIndex > lastUnderscoreIndex) {
@@ -69,19 +64,48 @@ function DocumentsList({ refreshTrigger, onSelectDocument }: DocumentsListProps)
     return filename;
   };
 
-  const handleCompare = (filename: string) => {
-    onSelectDocument(`/uploads/${filename}`, getOriginalFilename(filename));
+  const handleCompare = async (filename: string) => {
+    setLoadingOCR(filename);
+
+    try {
+      // Fetch the PDF as blob from uploads folder
+      const pdfResponse = await fetch(`http://localhost:5000/uploads/${filename}`);
+      const blob = await pdfResponse.blob();
+
+      // Convert blob to Base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      // Call OCR API
+      const ocrResponse = await fetch('http://localhost:5000/azuredoc-ocr/ocr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_base64: base64 })
+      });
+
+      const ocrResult = await ocrResponse.json();
+
+      console.log("DocumentList ocrResult:",ocrResult);
+
+      // Callback with PDF path, original filename, and OCR result
+      onSelectDocument(`/uploads/${filename}`, getOriginalFilename(filename), ocrResult);
+    } catch (error) {
+      console.error('OCR processing failed:', error);
+      onSelectDocument(`/uploads/${filename}`, getOriginalFilename(filename), { error: 'OCR failed' });
+    } finally {
+      setLoadingOCR(null);
+    }
   };
 
   return (
     <div className="documents-section">
       <div className="section-header">
         <h2>Uploaded Documents</h2>
-        <button
-          className="refresh-button"
-          onClick={fetchDocuments}
-          disabled={loadingDocuments}
-        >
+        <button className="refresh-button" onClick={fetchDocuments} disabled={loadingDocuments}>
           {loadingDocuments ? 'Loading...' : '🔄 Refresh'}
         </button>
       </div>
@@ -104,16 +128,17 @@ function DocumentsList({ refreshTrigger, onSelectDocument }: DocumentsListProps)
             <tbody>
               {documents.map((doc) => (
                 <tr key={doc.filename}>
-                  <td className="filename">{getOriginalFilename(doc.filename)}</td>
+                  <td>{getOriginalFilename(doc.filename)}</td>
                   <td>{formatFileSize(doc.size)}</td>
                   <td>{formatDate(doc.uploadedAt)}</td>
-                  <td className="action-cell">
+                  <td>
                     {isPDF(doc.filename) ? (
                       <button
                         className="compare-button"
                         onClick={() => handleCompare(doc.filename)}
+                        disabled={loadingOCR === doc.filename}
                       >
-                        👁️ Compare
+                        {loadingOCR === doc.filename ? 'Processing...' : '👁️ Compare'}
                       </button>
                     ) : (
                       <span className="not-pdf">Not PDF</span>

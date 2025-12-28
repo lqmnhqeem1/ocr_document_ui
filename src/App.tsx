@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
 import UploadForm from './components/UploadForm';
@@ -18,6 +18,40 @@ function App() {
     window.location.href = `/compare?file=${encodeURIComponent(pdfPath)}&name=${encodeURIComponent(fileName)}`;
   };
 
+  /* ---------- Convert hardcoded PDF to Base64 ---------- */
+  // useEffect(() => {
+  //   const pdfPath = `${process.env.PUBLIC_URL}/uploads/eCOM Sample 1_1766918038336.pdf`; // Hardcoded PDF path
+  //   const fileName = "eCOM Sample 1_1766918038336.pdf";
+
+  //   const fetchAndConvertPDF = async () => {
+  //     try {
+  //       const response = await fetch(pdfPath);
+  //       const blob = await response.blob();
+
+  //       const base64 = await new Promise<string>((resolve, reject) => {
+  //         const reader = new FileReader();
+  //         reader.onloadend = () => {
+  //           if (typeof reader.result === 'string') {
+  //             resolve(reader.result.split(',')[1]); // Remove data: prefix
+  //           } else {
+  //             reject('Failed to read PDF');
+  //           }
+  //         };
+  //         reader.onerror = reject;
+  //         reader.readAsDataURL(blob);
+  //       });
+
+  //       console.log('Pdf Path:', pdfPath);
+  //       console.log('File name:', fileName);
+  //       console.log('Base64 string:', base64);
+  //     } catch (err) {
+  //       console.error('Error converting PDF to Base64:', err);
+  //     }
+  //   };
+
+  //   fetchAndConvertPDF();
+  // }, []);
+  
   return (
     <Router>
       <Routes>

@@ -133,12 +133,8 @@ function DocumentsList({ refreshTrigger, onSelectDocument }: DocumentsListProps)
                   <td>{formatDate(doc.uploadedAt)}</td>
                   <td>
                     {isPDF(doc.filename) ? (
-                      <button
-                        className="compare-button"
-                        onClick={() => handleCompare(doc.filename)}
-                        disabled={loadingOCR === doc.filename}
-                      >
-                        {loadingOCR === doc.filename ? 'Processing...' : '👁️ Compare'}
+                      <button className="compare-button" onClick={() => handleCompare(doc.filename)} disabled={loadingOCR === doc.filename}>
+                        {loadingOCR === doc.filename ? 'Processing...' : '👁️ Compare' }
                       </button>
                     ) : (
                       <span className="not-pdf">Not PDF</span>

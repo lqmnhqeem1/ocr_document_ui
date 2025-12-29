@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import PDFViewer from './PDFViewer';
+import './ComparePage.css';
 
 /* ---------- Types ---------- */
 
@@ -37,16 +38,13 @@ function ComparePage() {
       setOcrResult(null);
 
       try {
-        /* ---- Load PDF ---- */
-        const response = await fetch(pdfPath);
+        const response = await fetch("http://localhost:5000" + pdfPath);
         const blob = await response.blob();
 
-        /* ---- Convert to Base64 ---- */
         const base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => {
             if (typeof reader.result === 'string') {
-              // Strip the data: URL prefix
               const base64Data = reader.result.split(',')[1];
               resolve(base64Data);
             } else {
@@ -57,9 +55,7 @@ function ComparePage() {
           reader.readAsDataURL(blob);
         });
 
-        console.log('Base64 PDF:', base64); // ✅ Only one conversion
-        const apiPdfUrl = `http://localhost:5000/api/documents/${fileName}`;
-        /* ---- Call OCR API ---- */
+        console.log("base64",base64);
         const ocrResponse = await fetch(
           'http://localhost:8000/azuredoc-ocr/base64',
           {
@@ -94,8 +90,35 @@ function ComparePage() {
     fetchOCR();
   }, [pdfPath, fileName]);
 
-  /* ---------- UI ---------- */
+  /* ---------- Helper: Parse OCR page into table rows ---------- */
+  const parsePageToTable = (text: string) => {
+    const lines = text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line);
 
+    const headerIndex = lines.findIndex((line) => line === 'Item');
+    if (headerIndex === -1) return null;
+
+    const headers = lines.slice(headerIndex + 1, headerIndex + 7);
+    const dataLines = lines.slice(headerIndex + 7);
+    const rows: any[] = [];
+    for (let i = 0; i < dataLines.length; i += 6) {
+      if (i + 5 >= dataLines.length) break;
+      rows.push({
+        name: dataLines[i].replace(/^\d+\s/, ''),
+        nric: dataLines[i + 1],
+        basic: dataLines[i + 2],
+        epfYer: dataLines[i + 3],
+        epfEe: dataLines[i + 4],
+        totalEpf: dataLines[i + 5],
+      });
+    }
+
+    return { headers, rows };
+  };
+
+  /* ---------- UI ---------- */
   return (
     <div className="compare-page">
       <div className="compare-container">
@@ -119,22 +142,76 @@ function ComparePage() {
 
             {!loading && !error && ocrResult && (
               <>
-                <p>
-                  <strong>File:</strong> {ocrResult.file_name}
-                </p>
-                <p>
-                  <strong>Total Pages:</strong> {ocrResult.pages}
-                </p>
-
                 {ocrResult.ocr_text.length === 0 ? (
                   <p>No OCR text detected.</p>
                 ) : (
-                  ocrResult.ocr_text.map((page) => (
-                    <div key={page.page} style={{ marginBottom: '20px' }}>
-                      <h4>Page {page.page}</h4>
-                      <pre style={{ whiteSpace: 'pre-wrap' }}>{page.text}</pre>
-                    </div>
-                  ))
+                  ocrResult.ocr_text.map((page) => {
+                    const tableData = parsePageToTable(page.text);
+
+                    return (
+                      <div
+                        key={page.page}
+                        style={{
+                          marginBottom: '24px',
+                          padding: '12px',
+                          backgroundColor: '#f5f5f5',
+                          borderRadius: '6px',
+                          overflowX: 'auto',
+                        }}
+                      >
+                        <h4 style={{ marginBottom: '12px' }}>Page {page.page}</h4>
+
+                        {tableData ? (
+                          <table
+                            style={{
+                              borderCollapse: 'collapse',
+                              width: '100%',
+                            }}
+                          >
+                            <thead>
+                              <tr>
+                                {tableData.headers.map((header: string) => (
+                                  <th
+                                    key={header}
+                                    style={{
+                                      border: '1px solid #ddd',
+                                      padding: '8px',
+                                      textAlign: 'left',
+                                      backgroundColor: '#e0e0e0',
+                                    }}
+                                  >
+                                    {header}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {tableData.rows.map((row, idx) => (
+                                <tr key={idx}>
+                                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{row.name}</td>
+                                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{row.nric}</td>
+                                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{row.basic}</td>
+                                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{row.epfYer}</td>
+                                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{row.epfEe}</td>
+                                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{row.totalEpf}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <div
+                            style={{
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                              fontFamily: 'monospace',
+                            }}
+                          >
+                            {page.text}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </>
             )}

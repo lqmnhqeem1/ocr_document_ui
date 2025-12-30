@@ -11,7 +11,7 @@
 
 /* LEFT PANE */
 .compare-left-pane {
-  flex: 1;
+  flex: 0 0 35%;
   border-right: 1px solid #e0e0e0;
   overflow: hidden;
 }
@@ -36,22 +36,98 @@
   flex-shrink: 0;
 }
 
+.compare-right-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
 /* CONTENT (scrollable) */
 .compare-right-content {
   flex: 1;
   padding: 16px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.compare-right-content h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.compare-right-content h5 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+}
+
+/* Table styling */
+.compare-right-content table {
+  border-collapse: collapse;
+  width: 100%;
+  background: #fff;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.compare-right-content table thead {
+  background-color: #f5f5f5;
+}
+
+.compare-right-content table th {
+  padding: 10px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: #333;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.compare-right-content table td {
+  padding: 10px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 13px;
+  color: #666;
+}
+
+.compare-right-content table tbody tr:hover {
+  background-color: #fafafa;
 }
 
 /* OCR text formatting */
 .compare-right-content pre {
-  background: #f5f5f5;
+  background: #fff;
   padding: 12px;
   border-radius: 6px;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
+  border: 1px solid #e0e0e0;
+  margin: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Fields section */
+.compare-right-content > div > ul {
+  margin: 0;
+  padding-left: 16px;
+  list-style: none;
+}
+
+.compare-right-content > div > ul li {
+  padding: 8px 0;
+  font-size: 13px;
+  color: #666;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 /* Back button */
@@ -62,8 +138,36 @@
   color: #fff;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.2s;
 }
 
 .back-button:hover {
   background-color: #125ea8;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .compare-left-pane {
+    flex: 0 0 30%;
+  }
+
+  .compare-right-header {
+    padding: 10px 12px;
+  }
+
+  .compare-right-header h2 {
+    font-size: 16px;
+  }
+
+  .compare-right-content {
+    padding: 12px;
+  }
+
+  .compare-right-content table th,
+  .compare-right-content table td {
+    padding: 8px;
+    font-size: 12px;
+  }
 }

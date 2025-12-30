@@ -5,15 +5,30 @@ import './ComparePage.css';
 
 /* ---------- Types ---------- */
 
-type OCRPage = {
+interface OCRPage {
   page: number;
   text: string;
-};
+}
+
+interface TableData {
+  table_name: string;
+  columns: string[];
+  rows: Record<string, string>[];
+}
+
+interface StructuredData {
+  fields?: Record<string, string>;
+  tables?: TableData[];
+  prepared_by?: Record<string, string>;
+  footer?: Record<string, string>;
+  notes?: string[];
+}
 
 interface OCRResult {
   file_name: string;
   pages: number;
   ocr_text: OCRPage[];
+  structured_data?: StructuredData;
 }
 
 /* ---------- Component ---------- */
@@ -54,8 +69,7 @@ function ComparePage() {
           reader.onerror = reject;
           reader.readAsDataURL(blob);
         });
-
-        console.log("base64",base64);
+        console.log("base64", base64);
         const ocrResponse = await fetch(
           'http://localhost:8000/azuredoc-ocr/base64',
           {
@@ -74,11 +88,7 @@ function ComparePage() {
           throw new Error(data.detail || 'OCR failed');
         }
 
-        setOcrResult({
-          file_name: data.file_name,
-          pages: data.pages ?? 0,
-          ocr_text: Array.isArray(data.ocr_text) ? data.ocr_text : [],
-        });
+        setOcrResult(data); // data now contains structured_data
       } catch (err) {
         console.error(err);
         setError('Error processing OCR');
@@ -89,34 +99,6 @@ function ComparePage() {
 
     fetchOCR();
   }, [pdfPath, fileName]);
-
-  /* ---------- Helper: Parse OCR page into table rows ---------- */
-  const parsePageToTable = (text: string) => {
-    const lines = text
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line);
-
-    const headerIndex = lines.findIndex((line) => line === 'Item');
-    if (headerIndex === -1) return null;
-
-    const headers = lines.slice(headerIndex + 1, headerIndex + 7);
-    const dataLines = lines.slice(headerIndex + 7);
-    const rows: any[] = [];
-    for (let i = 0; i < dataLines.length; i += 6) {
-      if (i + 5 >= dataLines.length) break;
-      rows.push({
-        name: dataLines[i].replace(/^\d+\s/, ''),
-        nric: dataLines[i + 1],
-        basic: dataLines[i + 2],
-        epfYer: dataLines[i + 3],
-        epfEe: dataLines[i + 4],
-        totalEpf: dataLines[i + 5],
-      });
-    }
-
-    return { headers, rows };
-  };
 
   /* ---------- UI ---------- */
   return (
@@ -142,76 +124,118 @@ function ComparePage() {
 
             {!loading && !error && ocrResult && (
               <>
-                {ocrResult.ocr_text.length === 0 ? (
-                  <p>No OCR text detected.</p>
-                ) : (
-                  ocrResult.ocr_text.map((page) => {
-                    const tableData = parsePageToTable(page.text);
-
-                    return (
-                      <div
-                        key={page.page}
-                        style={{
-                          marginBottom: '24px',
-                          padding: '12px',
-                          backgroundColor: '#f5f5f5',
-                          borderRadius: '6px',
-                          overflowX: 'auto',
-                        }}
-                      >
-                        <h4 style={{ marginBottom: '12px' }}>Page {page.page}</h4>
-
-                        {tableData ? (
-                          <table
-                            style={{
-                              borderCollapse: 'collapse',
-                              width: '100%',
-                            }}
-                          >
-                            <thead>
-                              <tr>
-                                {tableData.headers.map((header: string) => (
-                                  <th
-                                    key={header}
-                                    style={{
-                                      border: '1px solid #ddd',
-                                      padding: '8px',
-                                      textAlign: 'left',
-                                      backgroundColor: '#e0e0e0',
-                                    }}
-                                  >
-                                    {header}
-                                  </th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {tableData.rows.map((row, idx) => (
-                                <tr key={idx}>
-                                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{row.name}</td>
-                                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{row.nric}</td>
-                                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{row.basic}</td>
-                                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{row.epfYer}</td>
-                                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{row.epfEe}</td>
-                                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{row.totalEpf}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        ) : (
-                          <div
-                            style={{
-                              whiteSpace: 'pre-wrap',
-                              wordBreak: 'break-word',
-                              fontFamily: 'monospace',
-                            }}
-                          >
-                            {page.text}
-                          </div>
+                {/* Render fields */}
+                {ocrResult.structured_data?.fields && Object.keys(ocrResult.structured_data.fields).length > 0 && (
+                  <div>
+                    <h4>Document Info</h4>
+                    <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                      <tbody>
+                        {Object.entries(ocrResult.structured_data.fields).map(
+                          ([key, value]) => (
+                            <tr key={key}>
+                              <td style={{ border: '1px solid #ddd', padding: '8px', fontWeight: 'bold' }}>
+                                {key}
+                              </td>
+                              <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+                                {value}
+                              </td>
+                            </tr>
+                          )
                         )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Render tables */}
+                {ocrResult.structured_data?.tables && ocrResult.structured_data.tables.length > 0 && (
+                  ocrResult.structured_data.tables.map((table, idx) => (
+                    <div key={idx}>
+                      <h4>{table.table_name}</h4>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table>
+                          <thead>
+                            <tr>
+                              {table.columns.map((col) => (
+                                <th key={col}>{col}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Array.isArray(table.rows) && table.rows.map((row, rIdx) => (
+                              <tr key={rIdx}>
+                                {typeof row === 'object' && row !== null ? (
+                                  table.columns.map((col) => (
+                                    <td key={col}>{row[col] || ''}</td>
+                                  ))
+                                ) : (
+                                  <td>{String(row)}</td>
+                                )}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                    );
-                  })
+                    </div>
+                  ))
+                )}
+
+                {/* Render prepared_by section */}
+                {ocrResult.structured_data?.prepared_by && Object.keys(ocrResult.structured_data.prepared_by).length > 0 && (
+                  <div>
+                    <h4>Prepared By</h4>
+                    <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                      <tbody>
+                        {Object.entries(ocrResult.structured_data.prepared_by).map(
+                          ([key, value]) => (
+                            <tr key={key}>
+                              <td style={{ border: '1px solid #ddd', padding: '8px', fontWeight: 'bold' }}>
+                                {key}
+                              </td>
+                              <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+                                {value}
+                              </td>
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Render footer section */}
+                {ocrResult.structured_data?.footer && Object.keys(ocrResult.structured_data.footer).length > 0 && (
+                  <div>
+                    <h4>Footer</h4>
+                    <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                      <tbody>
+                        {Object.entries(ocrResult.structured_data.footer).map(
+                          ([key, value]) => (
+                            <tr key={key}>
+                              <td style={{ border: '1px solid #ddd', padding: '8px', fontWeight: 'bold' }}>
+                                {key}
+                              </td>
+                              <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+                                {value}
+                              </td>
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Render notes if any */}
+                {ocrResult.structured_data?.notes && Array.isArray(ocrResult.structured_data.notes) && ocrResult.structured_data.notes.length > 0 && (
+                  <div>
+                    <h4>Notes</h4>
+                    <ul>
+                      {ocrResult.structured_data.notes.map((note, nIdx) => (
+                        <li key={nIdx}>{note}</li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
               </>
             )}

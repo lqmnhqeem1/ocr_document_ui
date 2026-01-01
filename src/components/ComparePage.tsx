@@ -69,7 +69,7 @@ function ComparePage() {
           reader.onerror = reject;
           reader.readAsDataURL(blob);
         });
-        console.log("base64", base64);
+        //console.log("base64", base64);
         const ocrResponse = await fetch(
           'http://localhost:8000/azuredoc-ocr/base64',
           {
